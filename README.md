@@ -1,124 +1,133 @@
-# Gestiune studenți – fișier binar cu acces relativ (C/C++)
+🇷🇴 [Versiunea în română](README.ro.md)
 
-Temă pentru materia **Algoritmi și Tehnici de Programare**. Programul gestionează o evidență de studenți stocată într-un **fișier binar cu organizare relativă**, folosind doar biblioteca standard (în stil C), într-un proiect Visual Studio.
+# Student Management – Binary Relative File (C/C++)
 
-## Cuprins
+Assignment for the **Algorithms and Programming Techniques** course. The program manages a student registry stored in a **binary file with relative organization**, using only the standard library (C style) in a Visual Studio project.
 
-- [Ce face programul](#ce-face-programul)
-- [Structura repository-ului](#structura-repository-ului)
-- [Cum funcționează un fișier relativ](#cum-funcționează-un-fișier-relativ)
-- [Structura unui articol](#structura-unui-articol)
-- [Funcționalități](#funcționalități)
-- [Compilare și rulare](#compilare-și-rulare)
-- [Exemplu de utilizare](#exemplu-de-utilizare)
-- [Fișiere generate](#fișiere-generate)
-- [Limitări cunoscute](#limitări-cunoscute)
+> Note: identifiers in the source code and the console messages are in Romanian.
 
-## Ce face programul
+## Table of contents
 
-Aplicația oferă un meniu în consolă cu care poți crea fișierul de studenți, adăuga înregistrări, căuta direct după număr matricol, genera rapoarte text și „exmatricula” studenți (ștergere logică).
+- [What the program does](#what-the-program-does)
+- [Repository structure](#repository-structure)
+- [How a relative file works](#how-a-relative-file-works)
+- [Record structure](#record-structure)
+- [Features](#features)
+- [Build and run](#build-and-run)
+- [Usage example](#usage-example)
+- [Generated files](#generated-files)
+- [Known limitations](#known-limitations)
 
-## Structura repository-ului
+## What the program does
+
+The application provides a console menu to create the student file, add records, look up a student directly by registration number, generate text reports, and "expel" students (logical deletion).
+
+## Repository structure
 
 ```
 .
-├── gestiune_studenti.cpp             # codul sursă
-├── gestiune_studenti.slnx            # soluția Visual Studio
-├── gestiune_studenti.vcxproj         # setările proiectului
-├── gestiune_studenti.vcxproj.filters # organizarea fișierelor în proiect
+├── gestiune_studenti.cpp             # source code
+├── gestiune_studenti.slnx            # Visual Studio solution
+├── gestiune_studenti.vcxproj         # project settings
+├── gestiune_studenti.vcxproj.filters # file organization in the project
 ├── .gitignore
-└── README.md
+├── README.md
+└── README.ro.md
 ```
 
-Folderele `x64/`, `.vs/` și fișierele `studenti.dat`, `studenti.txt`, `grupa_*.txt` sunt generate local și sunt excluse prin `.gitignore`.
+The `x64/` and `.vs/` folders and the files `studenti.dat`, `studenti.txt`, `grupa_*.txt` are generated locally and excluded through `.gitignore`.
 
-## Cum funcționează un fișier relativ
+## How a relative file works
 
-Într-un fișier relativ, **poziția unui articol în fișier este calculată direct din cheie**. Aici cheia este numărul matricol:
+In a relative file, **the position of a record is computed directly from its key**. Here the key is the registration number (`nrMatricol`):
 
 ```
-offset (în octeți) = nrMatricol * sizeof(Student)
+offset (in bytes) = nrMatricol * sizeof(Student)
 ```
 
-Astfel, pentru a găsi studentul cu numărul matricol `N` nu se parcurge tot fișierul, ci se face un salt direct cu `fseek` la poziția respectivă (acces direct, complexitate O(1)).
+To find the student with registration number `N`, the program does not scan the whole file. It jumps straight to that position with `fseek` (direct access, O(1)).
 
-Consecințe:
+Consequences:
 
-- Pozițiile care nu corespund niciunui student sunt umplute cu articole „goale” (`stare = '0'`).
-- Poziția 0 nu este folosită (numerele matricole încep de la 1).
-- Fișierul crește până la cel mai mare număr matricol introdus.
+- Positions that do not correspond to any student are filled with "empty" records (`stare = '0'`).
+- Position 0 is not used (registration numbers start at 1).
+- The file grows up to the largest registration number entered.
 
-### Ștergerea logică
+### Binary vs. relative
 
-Studentul nu este eliminat fizic din fișier. La exmatriculare, câmpul `stare` se schimbă din `'1'` (ocupat) în `'0'` (liber), iar articolul rămâne pe loc. Toate listările ignoră articolele cu `stare = '0'`.
+"Binary" and "relative" describe different things. *Binary* refers to how data is written (`fwrite`/`fread`, raw bytes as in memory, not text). *Relative* refers to how records are organized (position computed from the key). This file is binary in format and relative in organization.
 
-## Structura unui articol
+### Logical deletion
+
+A student is not physically removed from the file. When expelled, the `stare` field changes from `'1'` (occupied) to `'0'` (free), and the record stays in place. All listings ignore records with `stare = '0'`.
+
+## Record structure
 
 ```c
 typedef struct {
-    char  stare;       // '0' = liber, '1' = ocupat
-    int   nrMatricol;  // cheia relativă
-    char  nume[20];
-    int   an;
-    int   grup;
-    float note[10];
+    char  stare;       // '0' = free, '1' = occupied
+    int   nrMatricol;  // relative key (registration number)
+    char  nume[20];    // name
+    int   an;          // year of study
+    int   grup;        // group
+    float note[10];    // 10 grades
 } Student;
 ```
 
-Toate articolele au aceeași dimensiune (`sizeof(Student)`), condiție necesară pentru calculul poziției prin `fseek`.
+All records have the same size (`sizeof(Student)`), which is required for computing positions with `fseek`.
 
-## Funcționalități
+## Features
 
-| Opțiune | Funcție | Descriere |
+| Option | Function | Description |
 |---|---|---|
-| 1 | `creareFisier()` | Creează `studenti.dat` de la zero (modul `wb`) din datele citite de la tastatură. **Suprascrie** fișierul existent. |
-| 2 | `adaugareFisier()` | Adaugă studenți într-un fișier existent (`rb+`); dacă nu există, îl creează (`wb+`). Extinde fișierul cu articole goale dacă e nevoie. |
-| 3 | `listareFisierText()` | Scrie toți studenții activi, sub formă de tabel cu media, în `studenti.txt`. |
-| 4 | `afisareDupaNrMatricol()` | Afișează un student prin acces direct, pe baza numărului matricol. |
-| 5 | `listarePeGrupe()` | Pentru fiecare grupă introdusă, generează un fișier `grupa_<nr>.txt` cu situația studenților din grupă. |
-| 6 | `exmatriculare()` | Marchează studenții indicați ca inactivi (ștergere logică). |
-| 0 | – | Ieșire din program. |
+| 1 | `creareFisier()` | Creates `studenti.dat` from scratch (mode `wb`) from keyboard input. **Overwrites** an existing file. |
+| 2 | `adaugareFisier()` | Adds students to an existing file (`rb+`); creates it if missing (`wb+`). Extends the file with empty records when needed. |
+| 3 | `listareFisierText()` | Writes all active students, as a table with their average, to `studenti.txt`. |
+| 4 | `afisareDupaNrMatricol()` | Displays a student through direct access by registration number. |
+| 5 | `listarePeGrupe()` | For each group entered, generates a `grupa_<nr>.txt` file with the students of that group. |
+| 6 | `exmatriculare()` | Marks the given students as inactive (logical deletion). |
+| 0 | – | Exit. |
 
-Introducerea datelor se oprește la un număr matricol (sau grupă) `<= 0`.
+Input stops when a registration number (or group) `<= 0` is entered.
 
-### Moduri de deschidere folosite
+### File open modes used
 
-Fișierele se deschid cu `fopen_s`, varianta sigură din Visual C++.
+Files are opened with `fopen_s`, the secure Visual C++ variant.
 
-| Mod | Semnificație |
+| Mode | Meaning |
 |---|---|
-| `wb` | scriere binară, creează/golește fișierul |
-| `rb` | citire binară |
-| `rb+` | citire + scriere binară pe fișier existent |
-| `wb+` | citire + scriere binară, fișier nou |
+| `wb` | binary write, creates/truncates the file |
+| `rb` | binary read |
+| `rb+` | binary read + write on an existing file |
+| `wb+` | binary read + write, new file |
 
-## Compilare și rulare
+## Build and run
 
-Codul folosește funcțiile „sigure” `fopen_s`, `scanf_s` și `sprintf_s`, deci se compilează cu **Microsoft Visual C++** (Visual Studio).
+The code uses the "secure" functions `fopen_s`, `scanf_s` and `sprintf_s`, so it builds with **Microsoft Visual C++** (Visual Studio).
 
-### Din Visual Studio
+### From Visual Studio
 
-1. Clonează repository-ul:
+1. Clone the repository:
    ```bash
-   git clone https://github.com/USERNAME/NUME-REPO.git
+   git clone https://github.com/USERNAME/REPO-NAME.git
    ```
-2. Deschide `gestiune_studenti.slnx` cu Visual Studio (format de soluție disponibil în Visual Studio 2022 versiunea 17.13 sau mai nouă).
-3. Alege configurația `Debug` / `x64` și apasă **Ctrl+F5** (Start Without Debugging).
+2. Open `gestiune_studenti.slnx` in Visual Studio (solution format available in Visual Studio 2022 version 17.13 or newer).
+3. Select the `Debug` / `x64` configuration and press **Ctrl+F5** (Start Without Debugging).
 
-Fișierele `studenti.dat`, `studenti.txt` și `grupa_*.txt` vor fi create în directorul de lucru al proiectului.
+The files `studenti.dat`, `studenti.txt` and `grupa_*.txt` are created in the project's working directory.
 
-### Din linia de comandă
+### From the command line
 
-Într-un *Developer Command Prompt for VS*:
+In a *Developer Command Prompt for VS*:
 
 ```bash
 cl /EHsc gestiune_studenti.cpp
 gestiune_studenti.exe
 ```
 
-> Notă: GCC/Clang pe Linux și macOS nu includ de obicei `fopen_s`, `scanf_s` și `sprintf_s`, deci programul nu se compilează acolo fără modificări (se folosesc `fopen`, `scanf`, `snprintf`).
+> Note: GCC/Clang on Linux and macOS usually do not provide `fopen_s`, `scanf_s` and `sprintf_s`, so the program will not compile there without changes (use `fopen`, `scanf`, `snprintf`).
 
-## Exemplu de utilizare
+## Usage example
 
 ```
 Optiunea: 1
@@ -137,22 +146,22 @@ Nr. matricol: 5
   Media: 8.70
 ```
 
-## Fișiere generate
+## Generated files
 
-- `studenti.dat` – fișierul binar relativ (datele principale)
-- `studenti.txt` – listarea tabelară a tuturor studenților activi
-- `grupa_<nr>.txt` – situația fiecărei grupe cerute
+- `studenti.dat` – the binary relative file (main data)
+- `studenti.txt` – table listing of all active students
+- `grupa_<nr>.txt` – the report for each requested group
 
-Acestea apar la rulare și nu sunt urcate pe GitHub (vezi `.gitignore`).
+These appear at runtime and are not uploaded to GitHub (see `.gitignore`).
 
-## Limitări cunoscute
+## Known limitations
 
-- Numele se citește cu `scanf_s("%s", ...)` și dimensiunea bufferului: nu acceptă spații, iar un nume mai lung de 19 caractere nu este citit (citirea eșuează, deci nu apare depășire de buffer).
-- La creare, bufferul intern reține maxim 100 de studenți.
-- Nu se validează tipul datelor introduse (o literă în loc de număr poate bloca citirea).
-- Un număr matricol foarte mare face fișierul foarte mare, deoarece toate pozițiile intermediare sunt umplute cu articole goale.
-- Fișierul `.dat` depinde de platformă (dimensiunea structurii și ordinea octeților), deci nu e garantat portabil între sisteme diferite.
+- The name is read with `scanf_s("%s", ...)` plus the buffer size: it does not accept spaces, and a name longer than 19 characters is not read (the read fails, so there is no buffer overflow).
+- On creation, the internal buffer holds at most 100 students.
+- The type of the input is not validated (a letter instead of a number can block reading).
+- A very large registration number makes the file very large, since all intermediate positions are filled with empty records.
+- The `.dat` file depends on the platform (struct size and byte order), so it is not guaranteed to be portable across different systems.
 
-## Autor
+## Author
 
-Andrei – temă pentru Algoritmi și Tehnici de Programare.
+Andrei – assignment for Algorithms and Programming Techniques.
