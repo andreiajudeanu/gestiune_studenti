@@ -1,4 +1,4 @@
-🇷🇴 [Versiunea în română](README.ro.md)
+🇷🇴 [Versiunea în română](READMEro.md)
 
 # Student Management – Binary Relative File (C/C++)
 
